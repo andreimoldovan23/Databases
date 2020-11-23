@@ -1,20 +1,11 @@
 use CoffeeTrade
 go
 
---if you want to change which procedures correspond to which versions
---or if you want to add more versions and implicitly more procedures
---all you need to do is drop the versioningProceduresTrigger, modify the VersioningProcedures table
---and then add back the trigger
-
---also, if the number of versions is modified you
---must modify the validation in the ChangeVersion procedure
-
 
 --version table--
 create table Version(
 currentVers int not null constraint defaultVersion default 0,
-dateModified datetime not null,
-constraint checkVersNumber check (currentVers between 0 and 7)
+dateModified datetime not null
 )
 insert into Version (dateModified) values (GETDATE())
 
@@ -30,9 +21,12 @@ newDate datetime not null
 
 --table for storing the do and undo procedures--
 create table VersioningProcedures(
-versNo int,
-do varchar(50),
-undo varchar(50)
+versNo int not null,
+do varchar(50) not null,
+undo varchar(50) not null,
+constraint PK_VersioningProcedures Primary Key(versNo),
+constraint Candidate_do unique(do),
+constraint Canditate_undo unique(undo)
 )
 insert into VersioningProcedures (versNo, do, undo) values
 	(1, 'ModifyColumnVarcharExtended', 'ModifyColumnVarcharReduced'),
@@ -43,14 +37,9 @@ insert into VersioningProcedures (versNo, do, undo) values
 	(6, 'AddCandidateFairTrade', 'RemoveCandidateFairTrade'),
 	(7, 'RemoveVersioningLog', 'AddVersioningLog')
 
-
---trigger on VersioningProcedures so no one is able to modify the values inside--
-create trigger versioningProceduresTrigger on VersioningProcedures
-instead of insert, delete, update
-as
-begin
-	raiserror(N'You are not allowed to modify VersioningProcedures', 15, 1)
-end
+--view for getting all version numbers
+create view getVersions as
+select versNo from VersioningProcedures
 
 
 --trigger on Version so no one is able to insert or delete values--
@@ -90,8 +79,9 @@ end
 --main procedure for changing version--
 create procedure ChangeVersion(@newVers int) as
 begin
+	print N'Changing version'
 	set nocount on
-	if @newVers is null or @newVers not between 0 and 7
+	if @newVers is null or (@newVers not in (select * from getVersions) and @newVers != 0)
 	begin
 		raiserror(N'Invalid parameters', 15, 1)
 		return
