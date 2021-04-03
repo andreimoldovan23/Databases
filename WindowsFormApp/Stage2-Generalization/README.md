@@ -1,0 +1,1 @@
+# Stage 2 - generalized form, may work with FairTrade and Farmer tables or with Shop and SpecialtyRoast tables
